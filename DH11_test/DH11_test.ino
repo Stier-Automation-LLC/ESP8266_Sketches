@@ -51,7 +51,9 @@ void setup() {
     for(;;); // Don't proceed, loop forever
   }
   pinMode(LEDPIN, OUTPUT);
+
   dht.begin();
+  
   ledState = false;
   count = 0;
 }

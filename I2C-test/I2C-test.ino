@@ -32,7 +32,9 @@ void loop() {
   display.setTextColor(WHITE);
   display.setCursor(0,0);
   display.println("Temp:");
+  display.print(" 98.5 deg f");
   display.setCursor(0,28);
-  display.println("Humidity:");
+  display.println("Humid:");
+  display.print(" 77.6");
   display.display();
 }
