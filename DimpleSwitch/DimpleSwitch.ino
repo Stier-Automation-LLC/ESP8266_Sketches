@@ -1,23 +1,29 @@
-/*
+/* 
+  ===========================================================================
   Dimple Garden Lighting System
-  Enables Relay in Dimple Garden and Reads the temp and humidity
-
-  The circuit:
+  ---------------------------------------------------------------------------
+  Enables Relay in Dimple Garden and Reads and Displays the temperature
+  and Humudity using a DHT11 sensor. 
+    The circuit:
       D1 = GPIO5  - Output - Relay
-      D2 = GPIO4  - Input - StartPB
+      D2 = GPIO4  - Input - On Pushbutton
       D3 = GPIO0  - Output  - GreenLED - WIFI Coneected
       D4 = GPIO2  - Output - InternalLED - blinks where program is running 
 
-      D5 - GPIO14  - Input - StopPB
+      D5 - GPIO14  - Input - off Pushbutton
       D6 - GPIO12 - Input - DHT11 Humidity sesor
+  ---------------------------------------------------------------------------
+  Revison		  Date		    Whom			  What
+  0.0.1 	    7/18/2022   S. Stier	 	Initial Release
 
-  created 7/1417/2024
-  by Steven Stier
+
+  ===========================================================================
 */
 // Load Wi-Fi library
 #include <ESP8266WiFi.h>
 #include <DHT.h> //Including library for dht
 
+const String version = "0.0.1";
 
 //GPIO Assingnments
 const int relayGPIO = 5; //Relay GPIO
@@ -127,8 +133,6 @@ void loop() {
     if (isnan(humidity) || isnan(temp)) {
       Serial.println("Failed to read from DHT sensor!");
     }
-    //prints out the Temperature and Humidity to serial Chanel
-    Serial.printf("%d Temp: %.1f°F Humidity: %.0f \n",count++,temp,humidity);  
 
   }
 
@@ -165,6 +169,9 @@ void loop() {
     Serial.print(",relay=");
     Serial.print(relayState);
     Serial.println("");
+        //prints out the Temperature and Humidity to serial Chanel
+    Serial.printf("Temp: %.1f°F Humidity: %.0f \n",temp,humidity);  
+
   }
 
 
@@ -181,7 +188,7 @@ void loop() {
       currentETime = millis();         
       if (client.available()) {             // if there's bytes to read from the client,
         char c = client.read();             // read a byte, then
-        Serial.write(c);                    // print it out the serial monitor
+        //Serial.write(c);                    // print it out the serial monitor
         header += c;
         if (c == '\n') {                    // if the byte is a newline character
           // if the current line is blank, you got two newline characters in a row.
@@ -208,6 +215,8 @@ void loop() {
             // Display the HTML web page
             client.println("<!DOCTYPE html><html>");
             client.println("<head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">");
+            //client.println("<head><meta http-equiv=\"refresh\" content=\"5\">");
+    
             client.println("<link rel=\"icon\" href=\"data:,\">");
             // CSS to style the on/off buttons 
             // Feel free to change the background-color and font-size attributes to fit your preferences
@@ -215,8 +224,9 @@ void loop() {
             client.println(".button { background-color: #195B6A; border: none; color: white; padding: 16px 40px;");
             client.println("text-decoration: none; font-size: 30px; margin: 2px; cursor: pointer;}");
             client.println(".button2 {background-color: #77878A;}");
-            client.println(".button3 {background-color: #008000;}</style></head>");
-            
+            client.println(".button3 {background-color: #008000;}</style>");
+            client.println("</head>");
+
             // Web Page Heading
             client.println("<body><h1>Dimple Garden Lights</h1>");;
 
@@ -226,12 +236,17 @@ void loop() {
             if (relayStatetxt=="On") {
               client.println("<h2><a href=\"/relayOff\"><button class=\"button\">Off</button></a></h2>");
             } else {
-              client.println("<h2><a href=\"/relayOn\"><button class=\"button button2\">On</button></a></h2>");
+              client.println("<h2><a href=\"/relayOn\"><button class=\"button button2\">On</button></a></h2><h2>");
             } 
-            client.printf(" Temp: %.0f °F Humidity: %.0f \n",temp,humidity);       
+            temp = dht.readTemperature(true);
+            // Read the Humidity
+            humidity = dht.readHumidity();
+
+            client.printf("Temp: %.1f degF   Humidity: %.0f \n",temp,humidity);       
             // Display Auto Mode Status
             //client.println("<h2>Auto Mode " + autoModeStatetxt + "</h2>");
-            client.println("<h2><a href=\"/\"><button class=\"button\">Refresh</button></a></h2>");
+            client.println("</h2><h2><a href=\"/\"><button class=\"button button3\">Refresh</button></a></h2>");
+            client.println("<p>Version:" + version + " Count:" + String(count++) + "</p>");
             client.println("</body></html>");
             
             // The HTTP response ends with another blank line
