@@ -234,9 +234,9 @@ void loop() {
             client.println("<h2>Relay: " +relayStatetxt+ "</h2>");
             // If the output5State is off, it displays the ON button       
             if (relayStatetxt=="On") {
-              client.println("<h2><a href=\"/relayOff\"><button class=\"button\">Off</button></a></h2>");
+              client.println("<h2><a href=\"/relayOff\"><button class=\"button button2\">Off</button></a></h2>");
             } else {
-              client.println("<h2><a href=\"/relayOn\"><button class=\"button button2\">On</button></a></h2><h2>");
+              client.println("<h2><a href=\"/relayOn\"><button class=\"button\">On</button></a></h2><h2>");
             } 
             temp = dht.readTemperature(true);
             // Read the Humidity
