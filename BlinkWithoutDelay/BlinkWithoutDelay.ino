@@ -3,7 +3,7 @@
 */
 
 // constants won't change. Used here to set a pin number:
-const int ledPin = 2;  // the number of the LED pin
+const int ledPin = 5;  // the number of the LED pin
 
 // Variables will change:
 int ledState = LOW;  // ledState used to set the LED
@@ -16,6 +16,10 @@ unsigned long previousMillis = 0;  // will store last time LED was updated
 const long interval = 1000;  // interval at which to blink (milliseconds)
 
 void setup() {
+    Serial.begin(9600);
+  Serial.println();
+  Serial.println();
+
   // set the digital pin as output:
   pinMode(ledPin, OUTPUT);
 }
@@ -41,5 +45,6 @@ void loop() {
 
     // set the LED with the ledState of the variable:
     digitalWrite(ledPin, ledState);
+    Serial.println(ledState);
   }
 }
