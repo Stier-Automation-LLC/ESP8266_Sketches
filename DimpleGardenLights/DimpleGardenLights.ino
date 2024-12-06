@@ -16,10 +16,10 @@
       D6 - GPIO12 -  Input - DHT11 Humidity sesor
 
   ---------------------------------------------------------------------------
-  Revison		  Date		    Whom			  What
-  0.0.1 	    7/30/2024   S. Stier	 	Initial Release
-  0.0.2 	    8/10/2024   S. Stier	 	install to garden
-
+  Revison		  Date		      Whom			  What
+  0.0.1 	    7/30/2024     S. Stier	 	Initial Release
+  0.0.2 	    8/10/2024     S. Stier	 	install to garden
+  0.0.3 	    12/6/2024    S. Stier	 	Update IP address and MQTT TOPIC Prefixes
   ===========================================================================
 */
 
@@ -28,17 +28,18 @@
 #include <Ticker.h> //esp8266 library that calls functions periodically
 #include <AsyncMqttClient.h>
 
-const String version = "0.0.2";
+const String version = "0.0.3";
 const int debug = HIGH;
+const String webSiteHeader = "Dimple ESP Test";
 
 /* Set your Static IP address info
 192.168.100.42	pugyardwater.puglocal	pugNetwork Yard Water System
-192.168.100.43	puggswtich.puglocal	pugNetwork Garden Light Switch
+192.168.100.43	pugswitch.puglocal	pugNetwork Garden Light Switch
 192.168.100.44	puggwater.puglocal	pugNetwork Garden Water System
 192.168.100.45	pugTemp.puglocal	Pugnetwork Temp Monitoring System
 192.168.100.46	pugESPTest.puglocal	Pugnetwork ESP Test System
 */
-IPAddress local_IP(192, 168, 100, 43);
+IPAddress local_IP(192, 168, 100, 46);
 IPAddress gateway(192, 168, 100, 1);
 IPAddress subnet(255, 255, 255, 0);
 IPAddress primaryDNS(192, 168, 100, 1);  
@@ -66,7 +67,14 @@ int screencounter;
 #define MQTT_PASSWORD "fred"
 
 // MQTT Topic Names
-const String  MQTT_TOPIC_PREFIX ="pugland/garden/switch/"; // Must be unique for all devices
+/* Set your Static IP address info
+const String  MQTT_TOPIC_PREFIX ="pugland/yard/water/"; // pugNetwork Yard Water System
+const String  MQTT_TOPIC_PREFIX ="pugland/garden/switch/"; // pugNetwork Garden Light Switch
+const String  MQTT_TOPIC_PREFIX ="pugland/garden/water/"; // pugNetwork Garden Water System
+const String  MQTT_TOPIC_PREFIX ="pugland/house/temp/"; // 	Pugnetwork Temp Monitoring System
+const String  MQTT_TOPIC_PREFIX ="pugland/test/switch/"; // 	Pugnetwork ESP Test System
+*/
+const String  MQTT_TOPIC_PREFIX ="pugland/test/switch/"; // Must be unique for all devices
 const String  MQTT_TOPIC_HB = "hb";
 const String  MQTT_TOPIC_TEMPERATURE = "temperature";
 const String  MQTT_TOPIC_HUMIDITY = "humidity";
@@ -452,7 +460,7 @@ void loop() {
             client.println("</head>");
 
             // Web Page Heading
-            client.println("<body><h1>Dimple Garden Lights</h1>");;
+            client.println("<body><h1>" + webSiteHeader + "</h1>");;
 
 
             client.println("<h2>Relay: " +relayStatetxt+ "</h2>");
