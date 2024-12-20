@@ -1,10 +1,10 @@
 /*
   ===========================================================================
-  Dimple Garden Light Switch
+  Dimple Worm Monitoring System
   ---------------------------------------------------------------------------
   Steven Stier Stier Automation LLC
 
-  Dimple Garden Lights Switch, temp and humidity
+  Dimple Worm System Temperature Monitoring
 
   The circuit:
       D1 = GPIO5  - Output - Relay
@@ -14,20 +14,22 @@
 
       D5 - GPIO14  - Input - off Pushbutton
       D6 - GPIO12 -  Input - DHT11 Humidity sesor
-
+      D7 - GPIO13 -  Input - DS1820
   ---------------------------------------------------------------------------
   Revison		  Date		      Whom			  What
   0.0.1 	    7/30/2024     S. Stier	 	Initial Release
   0.0.2 	    8/10/2024     S. Stier	 	install to garden
-  0.0.3 	    12/6/2024    S. Stier	 	Update IP address and MQTT TOPIC Prefixes
-  0.0.5 	    12/19/2024    S. Stier	 	Added worms
+  0.0.3 	    12/6/2024     S. Stier	 	Update IP address and MQTT TOPIC Prefixes
+  0.0.5 	    12/19/2024    S. Stier	 	Added worm tempurature monnitor system with 
   ===========================================================================
 */
 
 #include <ESP8266WiFi.h> // library specifically for the ESP8266 WiFi
 #include <DHT.h> //Including library for dht sensor
 #include <Ticker.h> //esp8266 library that calls functions periodically
-#include <AsyncMqttClient.h>
+#include <AsyncMqttClient.h>  // Required so that data can be sent to MQTT sensor
+#include <OneWire.h> // needed for the Dallas Temperature sensor DS1820 sensor
+#include <DallasTemperature.h> // needed for the Dallas Temperature sensor DS1820 sensor
 
 const String version = "0.0.5";
 const int debug = HIGH;
@@ -41,6 +43,11 @@ const String webSiteHeader = "Dimple Worms";
 192.168.100.46	pugESPTest.puglocal	Pugnetwork ESP Test System
 192.168.100.47	pugWorms.puglocal	Pugnetwork Worms System
 */
+
+// WIFI Settings
+
+const String HTTPADDRESS = "http://192.168.100.47";
+
 IPAddress local_IP(192, 168, 100, 47);
 IPAddress gateway(192, 168, 100, 1);
 IPAddress subnet(255, 255, 255, 0);
@@ -51,35 +58,32 @@ IPAddress secondaryDNS(8, 8, 8, 8);
 #define WIFI_SSID "pugfi"
 #define WIFI_PASSWORD "cupcake2016"
 
-// Set web server port number to 80
-WiFiServer server(80);
-
-// Variable to store the HTTP request
-String header;
-
-int screencounter;
-
 //  MQTT Mosquitto Broker Settings
 //#define MQTT_HOST IPAddress(192, 168, 100, 40)
 
 #define MQTT_HOST "pugsvr.puglocal"
 #define MQTT_PORT 1883
 
+// MQTT login information
 #define MQTT_USERNAME "mqadmin"
 #define MQTT_PASSWORD "fred"
 
 // MQTT Topic Names
-/* Set your Static IP address info
+/* Set unique MQtt Topic Predixes here so that the data is sent to unique locations in MQTT Broker
 const String  MQTT_TOPIC_PREFIX ="pugland/yard/water/"; // pugNetwork Yard Water System
 const String  MQTT_TOPIC_PREFIX ="pugland/garden/switch/"; // pugNetwork Garden Light Switch
 const String  MQTT_TOPIC_PREFIX ="pugland/garden/water/"; // pugNetwork Garden Water System
 const String  MQTT_TOPIC_PREFIX ="pugland/house/temp/"; // 	Pugnetwork Temp Monitoring System
 const String  MQTT_TOPIC_PREFIX ="pugland/test/switch/"; // 	Pugnetwork ESP Test System
+const String  MQTT_TOPIC_PREFIX ="pugland/garage/worms/"; // 	Pugnetwork worms monitoring system
 */
-const String  MQTT_TOPIC_PREFIX ="pugland/test/switch/"; // Must be unique for all devices
+// this must be uniqe for each device sending data
+const String  MQTT_TOPIC_PREFIX ="pugland/garage/worms/"; // Must be unique for all devices
+// This is for the Heartbeat signal so that we can now that that this server is Running.
 const String  MQTT_TOPIC_HB = "hb";
 const String  MQTT_TOPIC_TEMPERATURE = "temperature";
 const String  MQTT_TOPIC_HUMIDITY = "humidity";
+const String  MQTT_TOPIC_TEMPERATURE2 = "temperature2";
 const String  MQTT_TOPIC_RELAY = "relay";
 
 //GPIO Assignments
@@ -89,9 +93,24 @@ const String  MQTT_TOPIC_RELAY = "relay";
 #define INTERNALLEDGPIO 2 //GPIO WHERE LED Connected D4=gpio2
 #define STOPPBGPIO 14  //GPIO where Stop PB Connected D5 =GPIO14
 #define DHTGPIO 12 //GPIO WHERE DHT11 is connected D6=gpio12
+#define ONEWIREGPIO 13 //GPIO WHERE OneWire is connected D7=gpio13
 
+// Set web server port number to 80
+WiFiServer server(80);
+
+// Variable to store the HTTP request
+String header;
+
+int screencounter;
+
+// DHT11 sensor setup
 #define DHTTYPE DHT11
 DHT dht(DHTGPIO, DHTTYPE);
+
+// One wire sensor setup with Dallas temp sensors
+OneWire oneWire(ONEWIREGPIO); 
+// Pass our oneWire reference to Dallas Temperature.
+DallasTemperature sensors(&oneWire);
 
 Ticker wifiReconnectTimer; // timer to reconnect to wifi
 
@@ -107,6 +126,9 @@ String humidity = "Bad";  // Humidity Sensor Reading.
 String prevTemperature; // Previous Good Temperature Sensor Reading.
 String prevHumidity;   // Previous Good Humidity Sendor Reading.
 
+String temperature2 = "Bad"; // Tempurature2 Sensor Reading.
+String prevTemperature2; // Previous Good Temperature2 Sensor Reading.
+
 bool internalLEDState;
 String relayState;
 String prevRelayState;
@@ -117,6 +139,7 @@ unsigned long prevMillisSensorRead = 0;   // Stores last time Sensor Read Functi
 
 const long intervalSensorRead = 10000;         // Interval at which to read MQTTUpdateAll
 unsigned long sensorCount = 0;
+unsigned long sensor2Count = 0;
 
 unsigned long prevMillisMQTTUpdateAll = 0;   // Stores last time MQTTUpdateAll was published
 const long intervalMQTTUpdateAll = 60000;         // Interval at which to publish sensor readings
@@ -222,23 +245,7 @@ void onMqttMessage(char* topic, char* payload, AsyncMqttClientMessageProperties 
       Serial.println("Relay Off from MQTT.");
     }
   }
-  // Serial.println("Publish received.");
-  // Serial.print("  message: ");
-  // Serial.println(messageTemp);
-  // Serial.print("  topic: ");
-  // Serial.println(topic);
-  // Serial.print("  qos: ");
-  // Serial.println(properties.qos);
-  // Serial.print("  dup: ");
-  // Serial.println(properties.dup);
-  // Serial.print("  retain: ");
-  // Serial.println(properties.retain);
-  // Serial.print("  len: ");
-  // Serial.println(len);
-  // Serial.print("  index: ");
-  // Serial.println(index);
-  // Serial.print("  total: ");
-  // Serial.println(total);
+  
 }
 
 
@@ -286,6 +293,37 @@ void sensorRead() {
 
 }
 
+void oneWireTempSensorRead() {
+  // call sensors.requestTemperatures() to issue a global temperature
+  // request to all devices on the bus
+  if (debug == HIGH) Serial.print("Requesting onewire temperatures...");
+  sensors.requestTemperatures(); // Send the command to get temperatures
+  if (debug == HIGH) Serial.println("DONE");
+    // After we got the temperatures, we can print them here.
+  // We use the function ByIndex, and as an example get the temperature from the first sensor only.
+  float tempF = sensors.getTempFByIndex(0);
+
+  // Check if reading was successful
+  if (tempF != DEVICE_DISCONNECTED_C)
+  {
+    if (debug == HIGH) Serial.printf("%i Temp2: %.1f°F \n",sensor2Count++,tempF);
+       // format the temperature
+    temperature2 = String(tempF,1);
+    // determine if the value changed
+    if (temperature2 != prevTemperature2) {
+       sendMQTTUpdate(MQTT_TOPIC_PREFIX + MQTT_TOPIC_TEMPERATURE2,temperature2);
+     }
+    prevTemperature2 = temperature2;
+  }
+  else
+  {
+    Serial.println("Warning! : Failed to read from one-wire Temp sensor.");
+    temperature2 = "BAD";
+  }
+
+  
+}
+
 void OneSecondFunction() {
   //turn the Intrnal LED on and off
   internalLEDState = !internalLEDState;
@@ -296,6 +334,9 @@ void updateAllMQTT() {
   // update all data
   if (temperature != "BAD"){
     sendMQTTUpdate(MQTT_TOPIC_PREFIX + MQTT_TOPIC_TEMPERATURE,temperature);
+  }
+   if (temperature2 != "BAD"){
+    sendMQTTUpdate(MQTT_TOPIC_PREFIX + MQTT_TOPIC_TEMPERATURE2,temperature2);
   }
   if (humidity != "BAD"){
     sendMQTTUpdate(MQTT_TOPIC_PREFIX + MQTT_TOPIC_HUMIDITY,humidity);
@@ -329,6 +370,8 @@ void setup() {
 
   dht.begin();
 
+  // Start up the Onewire Dallas library
+  sensors.begin();
   internalLEDState = false;
 
   wifiConnectHandler = WiFi.onStationModeGotIP(onWifiConnect);
@@ -398,6 +441,7 @@ void loop() {
     // Save the last time a new reading was published
     prevMillisSensorRead = currentMillis;
     sensorRead();
+    oneWireTempSensorRead();
   }
 
   // force update of all MQTT varibles at a particular interval
@@ -448,8 +492,8 @@ void loop() {
             
             // Display the HTML web page
             client.println("<!DOCTYPE html><html>");
-            client.println("<head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">");
-            //client.println("<head><meta http-equiv=\"refresh\" content=\"5\">");
+            //client.println("<head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" >");
+            client.println("<head><meta http-equiv=\"refresh\" content=\"10;url=" + HTTPADDRESS + "\">");
     
             client.println("<link rel=\"icon\" href=\"data:,\">");
             // CSS to style the on/off buttons 
@@ -471,10 +515,9 @@ void loop() {
               client.println("<h2><a href=\"/relayOff\"><button class=\"button button2\">Turn Off</button></a></h2>");
             } else {
               client.println("<h2><a href=\"/relayOn\"><button class=\"button\">Turn On</button></a></h2><h2>");
-            } 
-
-            //client.printf("Temp: %.1f degF   Humidity: %.0f \n",temperature,humidity);  
-            client.println("<h2>Temperature:" + temperature + " degF Humidity:" + humidity + "</h2>");     
+            }  
+            client.println("<h2>Temperature: " + temperature + " degF    Humidity:" + humidity + "</h2>");  
+            client.println("<h2>Temperature 2: " + temperature2 + " degF  " + "</h2>");     
             // Display Auto Mode Status
             //client.println("<h2>Auto Mode " + autoModeStatetxt + "</h2>");
             client.println("<h2><a href=\"/\"><button class=\"button button3\">Refresh</button></a></h2>");
@@ -493,7 +536,7 @@ void loop() {
         }
       }
     }
-    // Clear the header variable
+     // Clear the header variable
     header = "";
     // Close the connection
     client.stop();
