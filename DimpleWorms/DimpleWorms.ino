@@ -8,13 +8,13 @@
 
   The circuit:
       D1 = GPIO5  - Output - Relay
-      D2 = GPIO4  - Input - On Pushbutton
-      D3 = GPIO0  - Output  - wifiLED - WIFI Coneected
+      D2 = GPIO4  - Input  - On Pushbutton
+      D3 = GPIO0  - Output - wifiLED - WIFI Coneected
       D4 = GPIO2  - Output - InternalLED - blinks where program is running 
 
-      D5 - GPIO14  - Input - off Pushbutton
-      D6 - GPIO12 -  Input - DHT11 Humidity sesor
-      D7 - GPIO13 -  Input - DS1820
+      D5 - GPIO14 - Input  - off Pushbutton
+      D6 - GPIO12 - Input  - DHT11 Humidity sesor
+      D7 - GPIO13 - Input  - DS1820
   ---------------------------------------------------------------------------
   Revison		  Date		      Whom			  What
   0.0.1 	    7/30/2024     S. Stier	 	Initial Release
