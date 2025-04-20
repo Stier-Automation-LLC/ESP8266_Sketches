@@ -17,7 +17,7 @@
       S3 - SD3 - GPIO10  - SCL
       S2 - SD2  - GPIO9   -  SDA
 
-  created 7/14/2024
+  created 4/19/2025
   by Steven Stier
 */
 // Load Wi-Fi library
@@ -49,7 +49,7 @@ int watchDogLEDState = LOW;  // ledState used to set the LED
 long previousHeartbeatMillis = 0; //holds the time the HeartBeat LED last blinked
 const long heartBeatInterval = 1000;  // interval at which to blink Heartbeat LED (milliseconds)
 
-unsigned long autoGalsSetpoint = 50; // how many gals to deliver at  
+unsigned long autoGalsSetpoint = 100; // how many gals to deliver at  
 
 const long totalizerInterval = 60000;           // interval at which to update the totalzier numbers
 long previoustotalizerUpdateMillis = 0;  //Holds the time the Totalzizer counts were updated
